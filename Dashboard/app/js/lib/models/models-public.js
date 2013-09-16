@@ -67,8 +67,7 @@ FLOW.PlacemarkDetail = FLOW.BaseModel.extend({
 FLOW.Placemark = FLOW.BaseModel.extend({
   latitude: DS.attr('number'),
   longitude: DS.attr('number'),
-  collectionDate: DS.attr('number'),
-  markType: DS.attr('string', {
-    defaultValue: 'WATER_POINT'
-  })
+  count: DS.attr('number'),
+  level: DS.attr('number'),
+  collectionDate: DS.attr('number')
 });
