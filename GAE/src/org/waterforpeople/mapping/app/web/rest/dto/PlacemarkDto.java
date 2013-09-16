@@ -24,6 +24,8 @@ public class PlacemarkDto extends BaseDto {
 	private String markType = null;
 	private Double latitude = null;
 	private Double longitude = null;
+	private Integer count = 0;
+	private Integer level = 0;
 	private Date collectionDate = null;
 
 	public String getMarkType() {
@@ -56,5 +58,21 @@ public class PlacemarkDto extends BaseDto {
 
 	public void setCollectionDate(Date collectionDate) {
 		this.collectionDate = collectionDate;
+	}
+
+	public Integer getCount() {
+		return count;
+	}
+
+	public void setCount(Integer count) {
+		this.count = count;
+	}
+
+	public Integer getLevel() {
+		return level;
+	}
+
+	public void setLevel(Integer level) {
+		this.level = level;
 	}
 }
