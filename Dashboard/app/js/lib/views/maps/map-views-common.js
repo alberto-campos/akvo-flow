@@ -21,7 +21,7 @@ FLOW.NavMapsView = FLOW.View.extend({
     Once the view is in the DOM create the map
   */
   didInsertElement: function () {
-    var map, mapOptions, self;
+    var map, mapOptions, self, geoModel, n, e, s, w;
 
     mapOptions = {
       center: new google.maps.LatLng(-0.703107, 36.765747),
@@ -29,8 +29,22 @@ FLOW.NavMapsView = FLOW.View.extend({
       mapTypeId: google.maps.MapTypeId.ROADMAP
     };
     map = new google.maps.Map(document.getElementById("flowMap"), mapOptions);
-
     FLOW.placemarkController.set('map', map);
+
+    google.maps.event.addListener(map, 'idle', redoMap);
+    geoModel = create_geomodel();
+
+    function redoMap () {
+      console.log('redo map triggered');
+      n = map.getBounds().getNorthEast().lat();
+      e = map.getBounds().getNorthEast().lng();
+      s = map.getBounds().getSouthWest().lat();
+      w = map.getBounds().getSouthWest().lng();
+
+      var bb = geoModel.create_bounding_box(n,e,s,w);
+      var bestBB = geoModel.best_bbox_search_cells(bb);
+      FLOW.placemarkController.adaptMap(bestBB,map.getZoom());
+    }
 
     self = this;
     this.$('#mapDetailsHideShow').click(function () {
