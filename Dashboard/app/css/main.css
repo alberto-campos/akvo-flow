@@ -3222,3 +3222,33 @@ width: 100%;
 .is-error .uploader-item:hover, .is-active.is-error .uploader-item { border-color: #900; }
 .is-error .uploader-item:hover .uploader-item-title, .is-active.is-error .uploader-item .uploader-item-title { background-color: rgba(153,0,0,0.6); }
 .is-error .uploader-item-creating-thumbnail { display: none; }
+
+/* maps */
+.cluster-marker-1, .cluster-marker-2, .cluster-marker-3 {
+	text-align: center;
+   	color:black;
+    font-size:11px;
+    font-weight:bold;
+    vertical-align: middle;
+}
+
+.cluster-marker-1 {
+   	background: url(../clusterImg/cl1.png) center center no-repeat;
+   	height:45px;
+   	width:45px;
+	line-height: 45px;
+}
+
+.cluster-marker-2 {
+	background: url(../clusterImg/cl2.png) center center no-repeat;
+   	height:40px;
+   	width:40px;
+ 	line-height: 40px;
+}
+
+.cluster-marker-3 {
+   	background: url(../clusterImg/cl3.png) center center no-repeat;
+   	height:35px;
+   	width:35px;
+  	line-height: 35px;
+}
