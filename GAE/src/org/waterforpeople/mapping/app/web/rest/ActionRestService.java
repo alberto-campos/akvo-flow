@@ -18,6 +18,7 @@ package org.waterforpeople.mapping.app.web.rest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import javax.inject.Inject;
 
@@ -31,7 +32,10 @@ import org.waterforpeople.mapping.analytics.domain.SurveyInstanceSummary;
 import org.waterforpeople.mapping.app.web.dto.BootstrapGeneratorRequest;
 import org.waterforpeople.mapping.app.web.dto.DataProcessorRequest;
 import org.waterforpeople.mapping.app.web.rest.dto.RestStatusDto;
+import org.waterforpeople.mapping.dao.QuestionAnswerStoreDao;
 import org.waterforpeople.mapping.dao.SurveyInstanceDAO;
+import org.waterforpeople.mapping.domain.QuestionAnswerStore;
+import org.waterforpeople.mapping.domain.SurveyInstance;
 import org.waterforpeople.mapping.app.gwt.server.survey.SurveyServiceImpl;
 
 import com.gallatinsystems.common.Constants;
@@ -39,6 +43,7 @@ import com.gallatinsystems.survey.dao.QuestionDao;
 import com.gallatinsystems.survey.dao.SurveyDAO;
 import com.gallatinsystems.survey.domain.Question;
 import com.gallatinsystems.survey.domain.Survey;
+import com.gallatinsystems.surveyal.app.web.SurveyalRestRequest;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.QueueFactory;
@@ -81,10 +86,11 @@ public class ActionRestService {
 			status = removeZeroMinMaxValues();
 		} else if ("fixOptions2Values".equals(action)){
 			status = fixOptions2Values();
+		} else if ("populateGeocellsForLocale".equals(action)){
+			status = computeGeocellsForLocales();
 		} else if ("createTestLocales".equals(action)){
 			status = createTestLocales();
 		}
-
 		statusDto.setStatus(status);
 		response.put("actions", "[]");
 		response.put("meta", statusDto);
@@ -135,6 +141,29 @@ public class ActionRestService {
 			}
 		}
 		return "ok";
+	}
+
+	/**
+	* runs over all surveydLocale objects, and populates:
+	* the Geocells field based on the latitude and longitude.
+	*
+	* New surveyedLocales will have these fields populated automatically, this
+	* method is to update legacy data.
+	*
+	* This method is invoked as a URL request:
+	* http://..../rest/actions?action=populateGeocellsForLocale
+	* 
+	* Clusters are not automatically computed.This is done by
+	* 1) deleting all the cluster objects by hand
+	* 2) running recomputeLocaleClusters in the dataProcessorRestServlet.
+	**/
+	private String computeGeocellsForLocales(){
+		Queue queue = QueueFactory.getDefaultQueue();
+		queue.add(TaskOptions.Builder.withUrl("/app_worker/surveyalservlet")
+				.param(SurveyalRestRequest.ACTION_PARAM,
+				SurveyalRestRequest.POP_GEOCELLS_FOR_LOCALE_ACTION)
+				.param("cursor", ""));
+		return "Done";
 	}
 
 	// remove zero minVal and maxVal values
