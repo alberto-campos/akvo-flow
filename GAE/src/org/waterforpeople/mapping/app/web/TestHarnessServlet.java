@@ -1841,6 +1841,21 @@ public class TestHarnessServlet extends HttpServlet {
 			} catch (Exception e) {
 				// no-op
 			}
+		} else if (DataProcessorRequest.RECOMPUTE_LOCALE_CLUSTERS.equals(action)) {
+			final TaskOptions options = TaskOptions.Builder
+					.withUrl("/app_worker/dataprocessor")
+					.param(DataProcessorRequest.ACTION_PARAM,
+							DataProcessorRequest.RECOMPUTE_LOCALE_CLUSTERS)
+					.header("Host",
+							BackendServiceFactory.getBackendService()
+									.getBackendAddress("dataprocessor"));
+			Queue queue = QueueFactory.getDefaultQueue();
+			queue.add(options);
+			try {
+				resp.getWriter().print("Request Processed - Check the logs");
+			} catch (Exception e) {
+				// no-op
+			}
 		}
 	}
 

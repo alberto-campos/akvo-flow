@@ -67,6 +67,9 @@ import com.gallatinsystems.survey.dao.SurveyDAO;
 import com.gallatinsystems.survey.domain.Question;
 import com.gallatinsystems.survey.domain.QuestionOption;
 import com.gallatinsystems.survey.domain.Survey;
+import com.gallatinsystems.surveyal.dao.SurveyedLocaleClusterDao;
+import com.gallatinsystems.surveyal.domain.SurveyedLocale;
+import com.gallatinsystems.surveyal.domain.SurveyedLocaleCluster;
 import com.google.appengine.api.backends.BackendServiceFactory;
 import com.google.appengine.api.memcache.MemcacheService;
 import com.google.appengine.api.memcache.stdimpl.GCacheFactory;
@@ -88,6 +91,7 @@ public class DataProcessorRestServlet extends AbstractRestApiServlet {
 	private static final String VALUE_TYPE = "VALUE";
 	private static final String OTHER_TYPE = "OTHER";
 	private static final Integer QAS_PAGE_SIZE = 300;
+	private static final Integer LOCALE_PAGE_SIZE = 500;
 	private static final String QAS_TO_REMOVE = "QAStoRemove";
 
 	@Override
@@ -133,6 +137,9 @@ public class DataProcessorRestServlet extends AbstractRestApiServlet {
 		} else if (DataProcessorRequest.DELETE_DUPLICATE_QAS
 				.equalsIgnoreCase(dpReq.getAction())) {
 			deleteDuplicatedQAS(dpReq.getOffset());
+		} else if (DataProcessorRequest.RECOMPUTE_LOCALE_CLUSTERS
+				.equalsIgnoreCase(dpReq.getAction())) {
+			recomputeLocaleClusters(dpReq.getOffset());
 		}
 		return new RestResponse();
 	}
@@ -319,7 +326,6 @@ public class DataProcessorRestServlet extends AbstractRestApiServlet {
 		}
 
 		if (results.size() == QAS_PAGE_SIZE) {
-
 			cache.put(QAS_TO_REMOVE, toRemove);
 
 			final TaskOptions options = TaskOptions.Builder
@@ -340,6 +346,73 @@ public class DataProcessorRestServlet extends AbstractRestApiServlet {
 			QuestionAnswerStoreDao dao = new QuestionAnswerStoreDao();
 			pm.makePersistentAll(toRemove); // some objects are in "transient" state
 			dao.delete(toRemove);
+		}
+	}
+
+	/**
+	 * description of how to run it.
+	 * @param offset
+	 */
+	@SuppressWarnings({ "unchecked" })
+	private void recomputeLocaleClusters(Long offset) {
+		log.log(Level.INFO, "recomputing locale clusters [Offset: "
+				+ offset + "]");
+
+		final PersistenceManager pm = PersistenceFilter.getManager();
+		final Query q = pm.newQuery(SurveyedLocale.class);
+		q.setOrdering("createdDateTime asc");
+		q.setRange(offset, offset + LOCALE_PAGE_SIZE);
+
+		final List<SurveyedLocale> results = (List<SurveyedLocale>) q
+				.execute();
+
+		SurveyedLocaleClusterDao slcDao = new SurveyedLocaleClusterDao();
+		for (SurveyedLocale locale : results) {
+			// adjust Geocell cluster data
+			if (locale.getGeocells() != null){
+				List<SurveyedLocaleCluster> existingClusters = slcDao.getExistingClusters(locale.getGeocells().subList(1,5));
+				Map<String, SurveyedLocaleCluster> slcMap= new HashMap<String, SurveyedLocaleCluster>();
+				List<SurveyedLocaleCluster> clustersToSave = new ArrayList<SurveyedLocaleCluster>();
+
+				// put existing clusters in map
+				for (SurveyedLocaleCluster slc : existingClusters){
+					slcMap.put(slc.getClusterGeocell(),slc);
+				}
+
+				for (int i = 1 ; i <= 4 ; i++){
+					if (slcMap.containsKey(locale.getGeocells().get(i))) {
+						// update an existing cluster count
+						SurveyedLocaleCluster slcUpdate = slcMap.get(locale.getGeocells().get(i));
+						slcUpdate.setLatCenter((slcUpdate.getLatCenter() * slcUpdate.getCount() + locale.getLatitude()) / (slcUpdate.getCount() + 1) );
+						slcUpdate.setLonCenter((slcUpdate.getLonCenter() * slcUpdate.getCount() + locale.getLongitude()) / (slcUpdate.getCount() + 1) );
+						slcUpdate.setCount(slcUpdate.getCount() + 1);
+						slcUpdate.setLastSurveyedLocaleId(locale.getKey().getId());
+						clustersToSave.add(slcUpdate);
+					} else {
+						// create new cluster
+						SurveyedLocaleCluster slcNew = new SurveyedLocaleCluster(locale.getLatitude(),
+								locale.getLongitude(), locale.getGeocells().subList(0,i), locale.getGeocells().get(i), i + 1, locale.getKey().getId());
+						clustersToSave.add(slcNew);
+					}
+				}
+				slcDao.save(clustersToSave);
+				slcDao.flushBatch();
+			}
+		}
+
+		if (results.size() == LOCALE_PAGE_SIZE) {
+			final TaskOptions options = TaskOptions.Builder
+					.withUrl("/app_worker/dataprocessor")
+					.param(DataProcessorRequest.ACTION_PARAM,
+							DataProcessorRequest.RECOMPUTE_LOCALE_CLUSTERS)
+					.param(DataProcessorRequest.OFFSET_PARAM,
+							String.valueOf(offset + LOCALE_PAGE_SIZE))
+					.header("Host",
+							BackendServiceFactory.getBackendService()
+									.getBackendAddress("dataprocessor"));
+			Queue queue = QueueFactory.getDefaultQueue();
+			queue.add(options);
+
 		}
 	}
 
